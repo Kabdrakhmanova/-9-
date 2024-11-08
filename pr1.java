@@ -44,6 +44,35 @@ class DateFilterDecorator extends ReportDecorator {
     }
 }
 
+class SalesAmountFilterDecorator extends ReportDecorator {
+    private double minAmount, maxAmount;
+
+    public SalesAmountFilterDecorator(IReport report, double minAmount, double maxAmount) {
+        super(report);
+        this.minAmount = minAmount;
+        this.maxAmount = maxAmount;
+    }
+
+    @Override
+    public String generate() {
+        return report.generate() + " | Отфильтровано по сумме продаж: от " + minAmount + " до " + maxAmount;
+    }
+}
+
+class UserAttributeFilterDecorator extends ReportDecorator {
+    private String attribute;
+
+    public UserAttributeFilterDecorator(IReport report, String attribute) {
+        super(report);
+        this.attribute = attribute;
+    }
+
+    @Override
+    public String generate() {
+        return report.generate() + " | Отфильтровано по атрибуту пользователя: " + attribute;
+    }
+}
+
 class SortingDecorator extends ReportDecorator {
     private String criterion;
 
@@ -80,19 +109,74 @@ class PdfExportDecorator extends ReportDecorator {
     }
 }
 
+class ReportBuilder {
+    private IReport report;
+
+    public ReportBuilder(IReport report) {
+        this.report = report;
+    }
+
+    public ReportBuilder withDateFilter(Date startDate, Date endDate) {
+        report = new DateFilterDecorator(report, startDate, endDate);
+        return this;
+    }
+
+    public ReportBuilder withSalesAmountFilter(double minAmount, double maxAmount) {
+        report = new SalesAmountFilterDecorator(report, minAmount, maxAmount);
+        return this;
+    }
+
+    public ReportBuilder withUserAttributeFilter(String attribute) {
+        report = new UserAttributeFilterDecorator(report, attribute);
+        return this;
+    }
+
+    public ReportBuilder withSorting(String criterion) {
+        report = new SortingDecorator(report, criterion);
+        return this;
+    }
+
+    public ReportBuilder withCsvExport() {
+        report = new CsvExportDecorator(report);
+        return this;
+    }
+
+    public ReportBuilder withPdfExport() {
+        report = new PdfExportDecorator(report);
+        return this;
+    }
+
+    public IReport build() {
+        return report;
+    }
+}
+
 public class ReportingSystem {
     public static void main(String[] args) throws Exception {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        
+
         IReport salesReport = new SalesReport();
         IReport userReport = new UserReport();
-        
-        IReport filteredSalesReport = new DateFilterDecorator(salesReport, dateFormat.parse("2023-01-01"), dateFormat.parse("2023-12-31"));
-        IReport sortedUserReport = new SortingDecorator(userReport, "Дата регистрации");
-        IReport csvExportedReport = new CsvExportDecorator(filteredSalesReport);
-        IReport pdfExportedReport = new PdfExportDecorator(sortedUserReport);
-        
-        System.out.println(csvExportedReport.generate());
-        System.out.println(pdfExportedReport.generate());
+
+        ReportBuilder builder = new ReportBuilder(salesReport);
+
+        IReport customizedReport = builder
+            .withDateFilter(dateFormat.parse("2023-01-01"), dateFormat.parse("2023-12-31"))
+            .withSalesAmountFilter(1000, 5000)
+            .withSorting("Дата продажи")
+            .withCsvExport()
+            .build();
+
+        System.out.println(customizedReport.generate());
+
+        builder = new ReportBuilder(userReport);
+
+        IReport userReportWithFilters = builder
+            .withUserAttributeFilter("VIP")
+            .withSorting("Дата регистрации")
+            .withPdfExport()
+            .build();
+
+        System.out.println(userReportWithFilters.generate());
     }
 }
